@@ -42,6 +42,242 @@ Fastdfs config
 
 nginx
 -------------
+
+## nginx安装说明
+1. 相关资料
+	* [Nginx官网](http://nginx.org)
+2. 下载Nginx（当前稳定版是[nginx-1.10.1](http://nginx.org/download/nginx-1.10.1.tar.gz)）
+
+			wget http://nginx.org/download/nginx-1.10.1.tar.gz
+			tar -zxvf nginx-1.10.1.tar.gz
+			
+3. 下载[fastdfs-nginx-module模块](https://github.com/happyfish100/fastdfs-nginx-module)
+			
+			wget https://github.com/happyfish100/fastdfs-nginx-module/archive/master.zip
+			unzip master
+
+4. 下载[nginx-lua-module模块]()
+			
+			
+			
+5. 编译安装(请正确设定相关模块所在目录)
+
+			./configure --prefix=/opt/nginx-1.10.1 --with-http_stub_status_module --with-http_realip_module --with-http_ssl_module --with-pcre --add-module=/home/long.yan/ngx_devel_kit-0.2.18/ --add-module=/home/long.yan/lua-nginx-module-0.10.2/ --add-module=/home/yue.yang/fastdfs-nginx-module-master/src
+
+			make
+			
+			make install
+			
+	安装成功后nginx将会安装在/opt/nginx-1.10.1中
+	
+6. 相关配置
+	* nginx.conf文件
+
+			vi /opt/nginx-1.10.1/conf/nginx.conf
+			
+		编辑`nginx.conf`文件
+	
+            user                www www;
+            worker_processes    4;
+
+            error_log           /opt/nginx-1.10.1/logs/nginx_error.log crit;
+            pid                 /opt/nginx-1.10.1/logs/nginx.pid;
+            worker_rlimit_nofile 655350;
+
+            events {
+                use                 epoll;
+                worker_connections  655350;
+            }
+
+            http {
+                include             mime.types;
+                default_type        application/octet-stream;
+                charset             utf-8;
+                server_tokens       off;
+
+                server_names_hash_bucket_size   128;
+                client_header_buffer_size       128k;
+                #client_header_buffer_size       128k;
+                large_client_header_buffers     4 128k;
+                #large_client_header_buffers     4 32k;
+                client_max_body_size            50m;
+
+                sendfile                on;
+                tcp_nopush              on;
+                keepalive_timeout       60;
+                tcp_nodelay             on;
+
+                proxy_connect_timeout   5;
+                proxy_read_timeout      60;
+                #proxy_read_timeout      240;
+                proxy_send_timeout      5;
+                #proxy_send_timeout      60;
+                proxy_buffer_size       32k;
+                proxy_buffers           4 64k;
+                proxy_busy_buffers_size 128k;
+                proxy_temp_file_write_size 128k;
+
+                gzip                on;
+                gzip_min_length     1k;
+                gzip_buffers        4 16k;
+                gzip_http_version   1.0;
+                gzip_comp_level     2;
+                gzip_types          text/plain application/x-javascript application/javascript  text/css application/xml image/jpeg image/gif image/png;
+                gzip_vary           on;
+
+                proxy_temp_path     /opt/nginx-1.10.1/cache_temp;
+                proxy_cache_path    /opt/nginx-1.10.1/cache_dir levels=1:2 keys_zone=cache_one:200m inactive=1d max_size=30g;
+
+                include     /opt/nginx-1.10.1/conf/vhosts/*_vhost.conf;
+
+                log_format  access  '$remote_addr - $remote_user [$time_local] "$request" '
+                                    '$status $body_bytes_sent "$http_referer" '
+                                    '"$http_user_agent" $http_x_forwarded_for ';
+                access_log  logs/access.log  access;
+            }
+
+	* 创建/vhosts文件夹及相关vhost配置文件
+	
+			mkdir /opt/nginx-1.10.1/conf/vhosts
+			
+			vi /opt/nginx-1.10.1/conf/vhosts/img.100credit.com_vhost.conf
+			
+		编辑`img.100credit.com_vhost.conf`文件
+		
+            server {
+                listen       80;
+                server_name  img.100credit.com;
+                index  index.html index.htm login.html;
+
+                access_log logs/img.100credit.com_access.log;
+                error_log  logs/img.100credit.com_error.log;
+
+                location /hello_lua {
+                      default_type 'text/plain';
+                      content_by_lua 'ngx.say("hello, lua")';
+                }
+
+                #location  / {
+                #        proxy_set_header        Host  $host;
+                #        proxy_set_header        X-Real-IP  $remote_addr;
+                #        proxy_set_header        REMOTE-HOST $remote_addr;
+                #        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+                #        proxy_pass http://img.100credit.com;
+                #    }
+                #
+
+                location /group1/M00 {
+                    alias /opt/fastdfs/storage/data;
+
+                    set $image_root "/opt/fastdfs/storage/data";
+                    #if ($uri ~ "/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/(.*)") {
+                    if ($uri ~ "/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/(.*)") {
+                        set $image_dir "$image_root/$3/$4/";
+                        set $image_name "$5";
+                        set $file "$image_dir$image_name";
+                    }
+                    if ($image_name ~ "([a-zA-Z0-9_]+)_([0-9]+x[0-9]+)?(q[0-9]{1,2})?.([a-zA-Z0-9]+)") {
+                            set $a  "$1";
+                            set $b  "$2";
+                            set $c  "$3";
+                            set $d  "$4";
+                            set $e  "$5";
+                            set $f  "$6";
+                    }
+
+                    if (!-f $file) {
+                        # 关闭lua代码缓存，方便调试lua脚本
+                        #lua_code_cache off;
+                        content_by_lua_file "/opt/nginx-1.10.1/conf/lua/thumbnail.lua";
+                    }
+                    #   if (-f $file) {
+                    #     rewrite ^(.*) http://www.jd.com break;
+                    #   }
+
+                    ngx_fastdfs_module;
+                }
+
+            }		            
+	
+	* 建立lua文件夹及相关脚本
+	
+			mkdir /opt/nginx-1.10.1/conf/lua
+			vi /opt/nginx-1.10.1/conf/lua/thumbnail.lua
+			
+		编辑`thumbnail.lua`文件	
+			
+            -- 解析形如http://img.100credit.com/group1/M00/00/00/wKgX2FfgoISAdnJpAAAexdAvMYY573_100x100q50.png的图片并生成
+            local preName = ngx.var.a
+            local whParam = ngx.var.b
+            local qParams = ngx.var.c
+            local qParam = string.sub(qParams,2)
+            local suffix = ngx.var.d
+
+            local command = "gm convert " .. ngx.var.image_dir .. preName .. "." ..  suffix
+
+            if (whParam=="")
+                then
+                else
+                    command = command .. " -thumbnail " .. whParam
+            end
+
+            if (qParams=="")
+                then
+                else
+                    command = command .. " -quality " .. qParam
+            end
+
+            command = command .. " " .. ngx.var.file
+
+            os.execute("echo preName=" .. preName .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+            os.execute("echo whParam=" .. whParam .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+            os.execute("echo qParams=" .. qParams .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+            os.execute("echo qParam=" .. qParam .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+            os.execute("echo suffix=" .. suffix .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+            os.execute("echo command=" .. command .. " > /opt/nginx-1.10.1/conf/lua/luaLog.txt")
+
+            os.execute(command)
+            ngx.redirect(ngx.var.uri)
+         
+		创建luaLog.txt文件用于记录lua执行日志，并赋予755权限，及所有权www用户
+			
+			touch /opt/nginx-1.10.1/conf/lua/luaLog.txt
+			chmod 755 /opt/nginx-1.10.1/conf/lua/luaLog.txt
+			chown www /opt/nginx-1.10.1/conf/lua/luaLog.txt				
+7. 启动、关闭、reload nginx
+
+	* 启动nginx
+		
+			/opt/nginx-1.10.1/sbin/nginx 
+			
+	* 关闭nginx (有时候可能不能正常关闭服务)
+		
+			/opt/nginx-1.10.1/sbin/nginx -s stop
+			
+		有时候可能不能正常关闭服务，可用如下命令检测
+			
+			ps -ef | grep nginx
+			ps aux | grep nginx
+	
+	* reload nginx
+		
+			/opt/nginx-1.10.1/sbin/nginx -s reload
+
+		
+8. 检测成功失败
+
+	* 检测nginx-lua-module是否安装成功：直接访问服务器地址/hello_lua,如果出现 hello, lua 则表示成功！
+
+	* 检测fastdfs-nginx-module是否安装成功：需要两台已配置好的fastdfs服务器集群，配置同样的nginx，在A服务器上传任意图片，使用B的ip进行访问（或看相应目录下是否同步生成了新文件）
+
+9. 异常及处理
+
+	* 多去观察 /opt/nginx-1.10.1/logs文件夹下的log文件，大部分错误是因为文件夹不存在、或者没有写入权限导致的。
+	
+	* 如果没有任何错误，仅仅是nginx_error.log中频繁出现`worker process exited with fatal code 2 and cannot be	respawn`,请删除当前nginx，重新下载fastdfs-nginx-module并重新进行nginx编译安装。
+
+#
+# 其他 
 * 给已安装的nginx增加新模块
 
 	1. 先查看原有nginx编译参数，具体方法：
@@ -59,6 +295,9 @@ nginx
 			cp objs/nginx /opt/nginx/sbin/nginx
 	
 	5. 重启nginx服务即可
+
+
+
 
 lua
 ------------
@@ -81,7 +320,7 @@ gm
 	* centos 
 	
 	* 安装流程
-		1. 准备安装环境
+		1. 方法一（自测失败）
 		
 				yum install -y gcc gcc-c++ make cmake autoconf automake
 				
@@ -100,7 +339,8 @@ gm
 				导入key
 				rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL
 				
-				安装GraphicsMagick （如果报错，请使用源码编译安装）				yum -y install GraphicsMagick GraphicsMagick-devel
+				安装GraphicsMagick （如果报错，请使用源码编译安装）								
+				yum -y install GraphicsMagick GraphicsMagick-devel
 			
 			* 问题及解决
 				* yum报错：'UnicodeDecodeError: 'ascii' codec can't decode byte 0xbc'
@@ -120,7 +360,8 @@ gm
 							import sys
 							reload(sys)
 							sys.setdefaultencoding('gbk')
-		2.	[下载GraphicsMagick](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)，并解压，源码编译安装
+							
+		2.	方法二（源码编译安装,自测成功！）：[下载GraphicsMagick](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)，并解压，源码编译安装
 					
 					./configure
 					
@@ -173,6 +414,8 @@ fastdfs
 3. 下载安装fastdfs
 
 	* [FastDFS_v5.08.tar.gz](http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz)	
+			
+			wget http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz
 			
 			tar xzf FastDFS.tar.gz
 			cd FastDFS/
@@ -267,7 +510,7 @@ fastdfs
     		/usr/bin/fdfs_storaged /etc/fdfs/storage.conf restart    		
 	* 重启tracker 
     	
-    	/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf restart
+    		/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf restart
 
 * 关闭服务
 	* 关闭storage
@@ -295,4 +538,4 @@ fastdfs
 
 
 
-	啊实打实的
+	
