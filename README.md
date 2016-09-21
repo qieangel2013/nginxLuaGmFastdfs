@@ -9,42 +9,430 @@ nginx + lua + gm + fastdfs 实现图片自动代理生成缩放、优化功能�
 ===
 * [说明](#说明)
 * [目录](#目录)
-* [相关服务介绍](#相关服务介绍)
-	* [Nginx](#Nginx)
-	* [Lua](#Lua)
-	* [Gm](#Gm)
-	* [Fastdfs](#Fastdfs) 
 * [安装部署与配置](#安装部署与配置)
-	* [Nginx部署及配置](#nginx-config)
-	* [Lua部署及配置](#lua-config)
 	* [Gm部署及配置](#gm-config)
 	* [Fastdfs部署及配置](#fastdfs-config)
+	* [Nginx部署及配置](#nginx-config)
+	* [Lua部署及配置](#lua-config)
 
 相关服务
 ==========
 
-nginx config
-------------
-
-lua config
+gm  config
 ----------
-* 注意事项
-	* 为确保lua+gm顺利生成图片，请确保 fdfs所在的storage/data拥有足够的权限进行写操作！
+## 安装说明
+1. 相关资料
+	* [graphicsmagick官网安装手册](http://www.graphicsmagick.org/INSTALL-unix.html)
+	* [graphicsmagick下载页面](https://sourceforge.net/projects/graphicsmagick/files/)
+	* [graphicsmagick下载连接](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)
+	* [graphicsmagick安装帖子](http://www.jb51.net/LINUXjishu/120332.html)
+	* 其他
+		* [ImageMagick官网Git](http://git.imagemagick.org/repos/ImageMagick)
+		* [ImageMagick下载地址](http://www.imagemagick.org/script/binary-releases.php)
+		* [imagemagick安装帖子](http://www.lifeba.org/arch/imagemagick.html)
+2. 准备工作
+	* centos 
+	
+	* 安装流程
+		1. 方法一（自测失败）
+		
+				yum install -y gcc gcc-c++ make cmake autoconf automake
+				
+				yum install -y libpng-devel libjpeg-devel libtiff-devel jasper-devel freetype-devel
+				
+				yum install libtool-ltdl libtool-ltdl-devel freetype freetype-devel fontconfig-devel （可省略，此处安装的应是ImageMagic相关依赖）
+				
+				启用 EPEL repo 源：
 
-gm config
----------
+				wget http://centos.ustc.edu.cn/epel/5/x86_64/epel-release-5-4.noarch.rpm
+				
+				rpm -Uvh epel-release-5-4.noarch.rpm
+				
+				yum --enablerepo=epel install jasper jasper-libs jasper-devel
+				
+				导入key
+				rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL
+				
+				安装GraphicsMagick （如果报错，请使用源码编译安装）								
+				yum -y install GraphicsMagick GraphicsMagick-devel
+			
+			* 问题及解决
+				* yum报错：'UnicodeDecodeError: 'ascii' codec can't decode byte 0xbc'
+					* 解决办法：
+					
+							（自测有效）
+					
+							cd /var/lib/rpm/
+							rm -i __db.*
+							yum clean all
+							yum history new
+							
+						使用以上方法后有的系统可以解决，有的却不可以。
+						终极解决方案：
+						在 /usr/share/yum-cli/yummain.py和 /usr/lib64/python2.4/encodings/utf_8.py中加入三行：
+						
+							import sys
+							reload(sys)
+							sys.setdefaultencoding('gbk')
+							
+		2.	方法二（源码编译安装,自测成功！）：[下载GraphicsMagick](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)，并解压，源码编译安装
+					
+					./configure
+					
+					make
+					
+					make install
+					
+					将会默认在一下目录中安装相应文件：
+					
+					/usr/local/bin
+					/usr/local/include
+					/usr/local/lib
+					/usr/local/share
+				
+				
+3. 测试安装
+	* 可以通过wget方式从网络上下载一张图片，然后使用如下命令进行测试：
+	
+			wget http://www.baidu.com/img/bd_logo1.png #下载图片
+			
+			gm identify bd_logo1.png #查看文件信息
+			
+			gm convert bd_logo1.png -thumbnail '100x100' output.png #生成缩略图
+ 				
 
 Fastdfs config
 --------------
+## 安装说明
+
+1. 准备工作
+	* 相关资料
+		* [FastDFS Git仓库](https://github.com/happyfish100/fastdfs)
+		* [最新版本的FastDFS下载](http://sourceforge.net/projects/fastdfs/)
+		* [参考资料](http://www.blogjava.net/Alpha/archive/2016/04/07/430008.html)
+
+2. 下载安装libfastcommon
+		
+			git clone https://github.com/happyfish100/libfastcommon.git
+			cd libfastcommon/
+			./make.sh
+			./make.sh install 
+			
+	确认make没有错误后，执行安装，64位系统默认会复制到/usr/lib64下。
+
+	这时候需要设置环境变量或者创建软链接
+		
+			export LD_LIBRARY_PATH=/usr/lib64/
+			ln -s /usr/lib64/libfastcommon.so /usr/local/lib/libfastcommon.so
+		
+3. 下载安装fastdfs
+
+	* [FastDFS_v5.08.tar.gz](http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz)	
+			
+			wget http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz
+			
+			tar xzf FastDFS.tar.gz
+			cd FastDFS/
+			./make.sh
+			./make.sh install
+
+	确认make没有错误后，执行安装，默认会安装到/usr/bin中，并在/etc/fdfs中添加三个配置文件。
+
+4. 修改配置文件
+
+	首先将三个文件的名字去掉sample，暂时只修改以下几点，先让fastdfs跑起来，其余参数调优的时候再考虑。
+	
+	* tracker.conf 中修改
+	
+			base_path=/home/fastdfs #用于存放日志。
+			http.server_port=8090 
+			
+	* storage.conf 中修改
+		
+			tracker_server=192.168.1.181:22122 #指定tracker服务器地址。
+			base_path=/home/fastdfs #用于存放日志。
+			store_path0=/home/fastdfs/storage #存放数据，若不设置默认为前面那个。
+			
+			http.server_port=80 
+			group_name=group1 
+			
+	* client.conf 中同样要修改
+	
+			base_path=/home/fastdfs #用于存放日志。
+			tracker_server=192.168.1.181:22122 #指定tracker服务器地址。
+			http.tracker_server_port=80
+			
+			#include http.conf 
+			#其它保持默认，注意上面那个是1个#，默认是2个#，去掉1个就行
+	
+	* 问题及解决：
+		* `外网访问 出现net.ConnectException: Connection refused: connect`
+			* 解决办法：storage的tracker_server地址必须是外网地址，重启FastDFS就好了。
+			
+	* 其他——配置文件内容：
+		
+		`/etc/fdfs/mod_fastdfs.conf` (请自行从fastdfs-nginx-module-master/src目录中将此文件拷贝到/etc/fdfs/目录下,否则会导致nginx启动出现问题，具体可参考下文nginx安装部分)
+		
+			connect_timeout=2
+			network_timeout=30
+			base_path=/opt/fastdfs
+			load_fdfs_parameters_from_tracker=true
+			storage_sync_file_max_delay = 86400
+			use_storage_id = false
+			storage_ids_filename = storage_ids.conf
+			tracker_server=192.168.23.216:22122
+			tracker_server=192.168.23.217:22122
+			storage_server_port=23000
+			group_name=group1
+			url_have_group_name = true
+			store_path_count=1
+			store_path0=/opt/fastdfs/storage
+			log_level=info
+			log_filename= /opt/fastdfs/logs/mod_fastdfs.log
+			response_mode=proxy
+			if_alias_prefix=
+			#include http.conf
+			flv_support = true
+			flv_extension = flv
+			group_count = 1
+			[group1]
+			group_name=group1
+			storage_server_port=23000
+			store_path_count=1
+			store_path0=/opt/fastdfs/storage
+			
+		`/etc/fdfs/client.conf`
+			
+			connect_timeout=30
+			network_timeout=60
+			base_path=/opt/fastdfs
+			tracker_server=192.168.23.216:22122
+			tracker_server=192.168.23.217:22122
+			log_level=info
+			use_connection_pool = false
+			connection_pool_max_idle_time = 3600
+			load_fdfs_parameters_from_tracker=false
+			use_storage_id = false
+			storage_ids_filename = storage_ids.conf
+			http.tracker_server_port=80
+			#include http.conf
+			
+		`/etc/fdfs/storage.conf`	
+		
+			disabled=false
+			group_name=group1
+			bind_addr=
+			client_bind=true
+			port=23000
+			connect_timeout=30
+			network_timeout=60
+			heart_beat_interval=30
+			stat_report_interval=60
+			base_path=/opt/fastdfs
+			max_connections=256
+			buff_size = 256KB
+			accept_threads=1
+			work_threads=4
+			disk_rw_separated = true
+			disk_reader_threads = 1
+			disk_writer_threads = 1
+			sync_wait_msec=50
+			sync_interval=0
+			sync_start_time=00:00
+			sync_end_time=23:59
+			write_mark_file_freq=500
+			store_path_count=1
+			store_path0=/opt/fastdfs/storage
+			#store_path1=/home/yuqing/fastdfs2
+			subdir_count_per_path=256
+			tracker_server=192.168.23.216:22122
+			tracker_server=192.168.23.217:22122
+			log_level=info
+			run_by_group=
+			run_by_user=
+			allow_hosts=*
+			file_distribute_path_mode=0
+			file_distribute_rotate_count=100
+			fsync_after_written_bytes=0
+			sync_log_buff_interval=10
+			sync_binlog_buff_interval=10
+			sync_stat_file_interval=300
+			thread_stack_size=512KB
+			upload_priority=10
+			if_alias_prefix=
+			check_file_duplicate=0
+			file_signature_method=hash
+			key_namespace=FastDFS
+			keep_alive=0
+			##include /home/yuqing/fastdht/conf/fdht_servers.conf
+			use_access_log = false
+			rotate_access_log = false
+			access_log_rotate_time=00:00
+			rotate_error_log = false
+			error_log_rotate_time=00:00
+			rotate_access_log_size = 0
+			rotate_error_log_size = 0
+			log_file_keep_days = 0
+			file_sync_skip_invalid_record=false
+			use_connection_pool = false
+			connection_pool_max_idle_time = 3600
+			http.domain_name=
+			http.server_port=80
+
+		`/etc/fdfs/tracker.conf`	
+		
+			disabled=false
+			bind_addr=
+			port=22122
+			connect_timeout=30
+			network_timeout=60
+			base_path=/opt/fastdfs
+			max_connections=256
+			accept_threads=1
+			work_threads=4
+			store_lookup=2
+			store_group=group2
+			store_server=0
+			store_path=0
+			download_server=0
+			reserved_storage_space = 10%
+			log_level=info
+			run_by_group=
+			run_by_user=
+			allow_hosts=*
+			sync_log_buff_interval = 10
+			check_active_interval = 120
+			thread_stack_size = 64KB
+			storage_ip_changed_auto_adjust = true
+			storage_sync_file_max_delay = 86400
+			storage_sync_file_max_time = 300
+			use_trunk_file = false
+			slot_min_size = 256
+			slot_max_size = 16MB
+			trunk_file_size = 64MB
+			trunk_create_file_advance = false
+			trunk_create_file_time_base = 02:00
+			trunk_create_file_interval = 86400
+			trunk_create_file_space_threshold = 20G
+			trunk_init_check_occupying = false
+			trunk_init_reload_from_binlog = false
+			trunk_compress_binlog_min_interval = 0
+			use_storage_id = false
+			storage_ids_filename = storage_ids.conf
+			id_type_in_filename = ip
+			store_slave_file_use_link = false
+			rotate_error_log = false
+			error_log_rotate_time=00:00
+			rotate_error_log_size = 0
+			log_file_keep_days = 0
+			use_connection_pool = false
+			connection_pool_max_idle_time = 3600
+			http.server_port=8090
+			http.check_alive_interval=30
+			http.check_alive_type=tcp
+			http.check_alive_uri=/status.html
+			
+		'/etc/fdfs/mime.types'(请从fastdfs源码编译所在的conf目录下自行拷贝至此目录)
+		
+		'/etc/fdfs/storage_ids.conf'(请从fastdfs源码编译所在的conf目录下自行拷贝至此目录)
+
+5. 启动tracker和storage
+		
+			/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf
+			/usr/bin/fdfs_storaged /etc/fdfs/storage.conf
+			
+			# netstat –lnp –tcp 参看端口是否起来，默认如果显示22122和8090,23000,80说明服务正常起来
+	
+6. 检查进程
+	
+			root@ubuntu:~# ps -ef |grep fdfs
+			root       7819      1  0 15:24 ?        00:00:00 /usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf
+			root       8046      1  0 15:36 ?        00:00:01 fdfs_storaged /etc/fdfs/storage.conf start
+		
+	表示启动ok了，若有错误，可以在/home/fastdfs目录下检查日志。
+
+7. 上传/删除测试
+
+	使用自带的fdfs_test来测试，使用格式如下：
+		
+			root@ubuntu:~# fdfs_test /etc/fdfs/client.conf upload /home/steven/01.jpg 
+			...
+			group_name=group1, ip_addr=192.168.1.181, port=23000
+			storage_upload_by_filename
+			group_name=group1, remote_filename=M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580.jpg
+			...
+			example file url: http://192.168.1.181/group1/M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580.jpg
+			storage_upload_slave_by_filename
+			group_name=group1, remote_filename=M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580_big.jpg
+			...
+			example file url: http://192.168.1.181/group1/M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580_big.jpg
+
+	使用fdfs_delete_file来删除文件，格式如下：
+	
+			fdfs_delete_file /etc/fdfs/client.conf group1/M00/00/00/wKgdhFTV11uAXgKWAPk-Io7D4w8667.jpg
+
+	可以看到，上传ok了，这里会生成两个文件，这是fastdfs的主/从文件特性，以后再介绍。example file url是不能在浏览器中直接打开的，除非配合nginx使用。删除文件需要完整的group_name和remote_filename。
+	
+8. 安装fastdfs-nginx-module模块（后面配置安装Nginx时有具体说明）
+
+	
+
+## FastDFS相关命令
+
+* 注意：
+	* 先重启storage服务，然后再启动nginx，注意顺序，否则会报端口占用的错误
+	* 注意， 千万不要使用-9强行杀死进程 。
+	* [相关资料](http://www.blogjava.net/Alpha/archive/2016/04/07/430008.html)
+
+* 重启服务
+
+	* 重启storage
+    		
+    		/usr/bin/fdfs_storaged /etc/fdfs/storage.conf restart    		
+	* 重启tracker 
+    	
+    		/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf restart
+
+* 关闭服务
+	* 关闭storage
+    		
+    		killall fdfs_storaged
+    		
+	* 关闭tracker
+   			
+   			killall fdfs_trackered
+
+* 查看集群状态
+	
+			/usr/bin/fdfs_monitor /etc/fdfs/storage.conf
+
+* 上传/删除测试
+	* 上传
+   			
+   			fdfs_test  /etc/fdfs/client.conf  upload  /home/website/platform/public/images/uploader/loading.gif
+	
+	* 删除
+    	
+    		fdfs_delete_file  /etc/fdfs/client.conf  group1/M00/00/00/ZciEZlepkl6Abj28AAAPOSSdASU225_big.gif
+
+
+
+lua config
+----------
+## 安装说明
+* [相关参考](http://www.cnblogs.com/yjf512/archive/2012/03/27/2419577.html)
+* 注意事项
+	* 为确保lua+gm顺利生成图片，请确保 fdfs所在的storage/data拥有足够的权限进行写操作！
 
 安装、部署及配置
 ============
 
-nginx
+nginx config
 -------------
 
 ## nginx安装说明
-1. 相关资料
+1. 前提及相关资料
+	* 请先确保fastdfs部署完成后在安装nginx（需要部分依赖、模块）
 	* [Nginx官网](http://nginx.org)
 2. 下载Nginx（当前稳定版是[nginx-1.10.1](http://nginx.org/download/nginx-1.10.1.tar.gz)）
 
@@ -55,10 +443,62 @@ nginx
 			
 			wget https://github.com/happyfish100/fastdfs-nginx-module/archive/master.zip
 			unzip master
+			
+	`需要拷贝fastdfs-nginx-module-master/src/mod_fastdfs.conf到/etc/fdfs/目录下,否则会导致nginx启动出现问题`(也可以直接用一下配置替换)
+	
+			vi /etc/fdfs/mod_fastdfs.conf
+			
+	`mod_fastdfs.conf`
+	
+			connect_timeout=2
+			network_timeout=30
+			base_path=/opt/fastdfs
+			load_fdfs_parameters_from_tracker=true
+			storage_sync_file_max_delay = 86400
+			use_storage_id = false
+			storage_ids_filename = storage_ids.conf
+			tracker_server=192.168.23.216:22122
+			tracker_server=192.168.23.217:22122
+			storage_server_port=23000
+			group_name=group1
+			url_have_group_name = true
+			store_path_count=1
+			store_path0=/opt/fastdfs/storage
+			log_level=info
+			log_filename= /opt/fastdfs/logs/mod_fastdfs.log
+			response_mode=proxy
+			if_alias_prefix=
+			#include http.conf
+			flv_support = true
+			flv_extension = flv
+			group_count = 1
+			[group1]
+			group_name=group1
+			storage_server_port=23000
+			store_path_count=1
+			store_path0=/opt/fastdfs/storage
 
-4. 下载[nginx-lua-module模块]()
+4. 下载[nginx-lua-module模块](http://blog.csdn.net/qq_25551295/article/details/51744815)
+	1. 下载安装LuaJIT 2.1
+	
+			cd /usr/local/src
+			wget http://luajit.org/download/LuaJIT-2.1.0-beta2.tar.gz
+			tar zxf LuaJIT-2.1.0-beta2.tar.gz
+			cd LuaJIT-2.1.0-beta2
+			make PREFIX=/usr/local/luajit
+			make install PREFIX=/usr/local/luajit
 			
+	2. 下载ngx_devel_kit（NDK）模块
+	
+			cd /usr/local/src
+			wget https://github.com/simpl/ngx_devel_kit/archive/v0.2.19.tar.gz
+			tar -xzvf v0.2.19.tar.gz
 			
+	3. 下载最新的lua-nginx-module模块
+	
+			cd /usr/local/src
+			wget https://github.com/openresty/lua-nginx-module/archive/v0.10.2.tar.gz
+			tar -xzvf v0.10.2.tar.gz	
 			
 5. 编译安装(请正确设定相关模块所在目录)
 
@@ -176,7 +616,7 @@ nginx
                         set $image_name "$5";
                         set $file "$image_dir$image_name";
                     }
-                    if ($image_name ~ "([a-zA-Z0-9_]+)_([0-9]+x[0-9]+)?(q[0-9]{1,2})?.([a-zA-Z0-9]+)") {
+                    if ($image_name ~ "([a-zA-Z0-9_\-]+)_([0-9]+x[0-9]+)?(q[0-9]{1,2})?.([a-zA-Z0-9]+)") {
                             set $a  "$1";
                             set $b  "$2";
                             set $c  "$3";
@@ -299,240 +739,7 @@ nginx
 
 
 
-lua
-------------
-## 安装说明
-* [相关参考](http://www.cnblogs.com/yjf512/archive/2012/03/27/2419577.html)
 
-gm
-----------
-## 安装说明
-1. 相关资料
-	* [graphicsmagick官网安装手册](http://www.graphicsmagick.org/INSTALL-unix.html)
-	* [graphicsmagick下载页面](https://sourceforge.net/projects/graphicsmagick/files/)
-	* [graphicsmagick下载连接](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)
-	* [graphicsmagick安装帖子](http://www.jb51.net/LINUXjishu/120332.html)
-	* 其他
-		* [ImageMagick官网Git](http://git.imagemagick.org/repos/ImageMagick)
-		* [ImageMagick下载地址](http://www.imagemagick.org/script/binary-releases.php)
-		* [imagemagick安装帖子](http://www.lifeba.org/arch/imagemagick.html)
-2. 准备工作
-	* centos 
-	
-	* 安装流程
-		1. 方法一（自测失败）
-		
-				yum install -y gcc gcc-c++ make cmake autoconf automake
-				
-				yum install -y libpng-devel libjpeg-devel libtiff-devel jasper-devel freetype-devel
-				
-				yum install libtool-ltdl libtool-ltdl-devel freetype freetype-devel fontconfig-devel （可省略，此处安装的应是ImageMagic相关依赖）
-				
-				启用 EPEL repo 源：
-
-				wget http://centos.ustc.edu.cn/epel/5/x86_64/epel-release-5-4.noarch.rpm
-				
-				rpm -Uvh epel-release-5-4.noarch.rpm
-				
-				yum --enablerepo=epel install jasper jasper-libs jasper-devel
-				
-				导入key
-				rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL
-				
-				安装GraphicsMagick （如果报错，请使用源码编译安装）								
-				yum -y install GraphicsMagick GraphicsMagick-devel
-			
-			* 问题及解决
-				* yum报错：'UnicodeDecodeError: 'ascii' codec can't decode byte 0xbc'
-					* 解决办法：
-					
-							（自测有效）
-					
-							cd /var/lib/rpm/
-							rm -i __db.*
-							yum clean all
-							yum history new
-							
-						使用以上方法后有的系统可以解决，有的却不可以。
-						终极解决方案：
-						在 /usr/share/yum-cli/yummain.py和 /usr/lib64/python2.4/encodings/utf_8.py中加入三行：
-						
-							import sys
-							reload(sys)
-							sys.setdefaultencoding('gbk')
-							
-		2.	方法二（源码编译安装,自测成功！）：[下载GraphicsMagick](http://downloads.sourceforge.net/project/graphicsmagick/graphicsmagick/1.3.25/GraphicsMagick-1.3.25.tar.gz)，并解压，源码编译安装
-					
-					./configure
-					
-					make
-					
-					make install
-					
-					将会默认在一下目录中安装相应文件：
-					
-					/usr/local/bin
-					/usr/local/include
-					/usr/local/lib
-					/usr/local/share
-				
-				
-3. 测试安装
-	* 可以通过wget方式从网络上下载一张图片，然后使用如下命令进行测试：
-	
-			wget http://www.baidu.com/img/bd_logo1.png #下载图片
-			
-			gm identify bd_logo1.png #查看文件信息
-			
-			gm convert bd_logo1.png -thumbnail '100x100' output.png #生成缩略图
- 				
-
-fastdfs
--------------
-## 安装说明
-
-1. 准备工作
-	* 相关资料
-		* [FastDFS Git仓库](https://github.com/happyfish100/fastdfs)
-		* [最新版本的FastDFS下载](http://sourceforge.net/projects/fastdfs/)
-		* [参考资料](http://www.blogjava.net/Alpha/archive/2016/04/07/430008.html)
-
-2. 下载安装libfastcommon
-		
-			git clone https://github.com/happyfish100/libfastcommon.git
-			cd libfastcommon/
-			./make.sh
-			./make.sh install 
-			
-	确认make没有错误后，执行安装，64位系统默认会复制到/usr/lib64下。
-
-	这时候需要设置环境变量或者创建软链接
-		
-			export LD_LIBRARY_PATH=/usr/lib64/
-			ln -s /usr/lib64/libfastcommon.so /usr/local/lib/libfastcommon.so
-		
-3. 下载安装fastdfs
-
-	* [FastDFS_v5.08.tar.gz](http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz)	
-			
-			wget http://downloads.sourceforge.net/project/fastdfs/FastDFS%20Server%20Source%20Code/FastDFS%20Server%20with%20PHP%20Extension%20Source%20Code%20V5.08/FastDFS_v5.08.tar.gz
-			
-			tar xzf FastDFS.tar.gz
-			cd FastDFS/
-			./make.sh
-			./make.sh install
-
-	确认make没有错误后，执行安装，默认会安装到/usr/bin中，并在/etc/fdfs中添加三个配置文件。
-
-4. 修改配置文件
-
-	首先将三个文件的名字去掉sample，暂时只修改以下几点，先让fastdfs跑起来，其余参数调优的时候再考虑。
-	
-	* tracker.conf 中修改
-	
-			base_path=/home/fastdfs #用于存放日志。
-			http.server_port=8090 
-			
-	* storage.conf 中修改
-		
-			tracker_server=192.168.1.181:22122 #指定tracker服务器地址。
-			base_path=/home/fastdfs #用于存放日志。
-			store_path0=/home/fastdfs/storage #存放数据，若不设置默认为前面那个。
-			
-			http.server_port=80 
-			group_name=group1 
-			
-	* client.conf 中同样要修改
-	
-			base_path=/home/fastdfs #用于存放日志。
-			tracker_server=192.168.1.181:22122 #指定tracker服务器地址。
-			http.tracker_server_port=80
-			
-			#include http.conf 
-			#其它保持默认，注意上面那个是1个#，默认是2个#，去掉1个就行
-	
-	* 问题及解决：
-		* `外网访问 出现net.ConnectException: Connection refused: connect`
-			* 解决办法：storage的tracker_server地址必须是外网地址，重启FastDFS就好了。
-
-5. 启动tracker和storage
-		
-			/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf
-			/usr/bin/fdfs_storaged /etc/fdfs/storage.conf
-			
-			# netstat –lnp –tcp 参看端口是否起来，默认如果显示22122和8090,23000,80说明服务正常起来
-	
-6. 检查进程
-	
-			root@ubuntu:~# ps -ef |grep fdfs
-			root       7819      1  0 15:24 ?        00:00:00 /usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf
-			root       8046      1  0 15:36 ?        00:00:01 fdfs_storaged /etc/fdfs/storage.conf start
-		
-	表示启动ok了，若有错误，可以在/home/fastdfs目录下检查日志。
-
-7. 上传/删除测试
-
-	使用自带的fdfs_test来测试，使用格式如下：
-		
-			root@ubuntu:~# fdfs_test /etc/fdfs/client.conf upload /home/steven/01.jpg 
-			...
-			group_name=group1, ip_addr=192.168.1.181, port=23000
-			storage_upload_by_filename
-			group_name=group1, remote_filename=M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580.jpg
-			...
-			example file url: http://192.168.1.181/group1/M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580.jpg
-			storage_upload_slave_by_filename
-			group_name=group1, remote_filename=M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580_big.jpg
-			...
-			example file url: http://192.168.1.181/group1/M00/00/00/wKgdhFTV0ZmAP3AZAPk-Io7D4w8580_big.jpg
-
-	使用fdfs_delete_file来删除文件，格式如下：
-	
-			fdfs_delete_file /etc/fdfs/client.conf group1/M00/00/00/wKgdhFTV11uAXgKWAPk-Io7D4w8667.jpg
-
-	可以看到，上传ok了，这里会生成两个文件，这是fastdfs的主/从文件特性，以后再介绍。example file url是不能在浏览器中直接打开的，除非配合nginx使用。删除文件需要完整的group_name和remote_filename。
-	
-8. 安装fastdfs-nginx-module模块
-
-	
-
-## FastDFS相关命令
-
-* 注意：
-	* 先重启storage服务，然后再启动nginx，注意顺序，否则会报端口占用的错误
-	* 注意， 千万不要使用-9强行杀死进程 。
-	* [相关资料](http://www.blogjava.net/Alpha/archive/2016/04/07/430008.html)
-
-* 重启服务
-
-	* 重启storage
-    		
-    		/usr/bin/fdfs_storaged /etc/fdfs/storage.conf restart    		
-	* 重启tracker 
-    	
-    		/usr/bin/fdfs_trackerd /etc/fdfs/tracker.conf restart
-
-* 关闭服务
-	* 关闭storage
-    		
-    		killall fdfs_storaged
-    		
-	* 关闭tracker
-   			
-   			killall fdfs_trackered
-
-* 查看集群状态
-	
-			/usr/bin/fdfs_monitor /etc/fdfs/storage.conf
-
-* 上传/删除测试
-	* 上传
-   			
-   			fdfs_test  /etc/fdfs/client.conf  upload  /home/website/platform/public/images/uploader/loading.gif
-	
-	* 删除
-    	
-    		fdfs_delete_file  /etc/fdfs/client.conf  group1/M00/00/00/ZciEZlepkl6Abj28AAAPOSSdASU225_big.gif
 
 
 
