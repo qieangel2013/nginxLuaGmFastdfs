@@ -12,9 +12,9 @@ nginx + lua + gm + fastdfs 实现图片自动代理生成缩放、优化功能�
 * [安装部署与配置](#安装部署与配置)
 	* [Gm部署及配置](#gm-config)
 	* [Fastdfs部署及配置](#fastdfs-config)
-	* [Nginx部署及配置](#nginx-config)
 	* [Lua部署及配置](#lua-config)
-
+	* [Nginx部署及配置](#nginx-config)
+	
 相关服务
 ==========
 
@@ -438,6 +438,44 @@ nginx config
 
 			wget http://nginx.org/download/nginx-1.10.1.tar.gz
 			tar -zxvf nginx-1.10.1.tar.gz
+
+	* 1.1. 安装pcre (`建议版本：8.35`)
+		1. 获取pcre编译安装包，在http://www.pcre.org/上可以获取当前最新的版本
+
+		2. 解压缩pcre-xx.tar.gz包。
+
+		3. 进入解压缩目录，执行./configure。
+
+		4. make & make install
+
+	* 1.2.安装openssl （`建议版本：1.0.1u`）
+		1. 获取openssl编译安装包，在http://www.openssl.org/source/上可以获取当前最新的版本。
+
+		2. 解压缩openssl-xx.tar.gz包。
+
+		3. 进入解压缩目录，执行./config。
+
+		4. make & make install
+
+		1.3.安装zlib
+		1. 获取zlib编译安装包，在http://www.zlib.net/上可以获取当前最新的版本。
+
+		2. 解压缩openssl-xx.tar.gz包。
+
+		3. 进入解压缩目录，执行./configure。
+
+		4. make & make install
+
+	* 1.4.安装nginx （`建议版本：1.10.1`）
+		1. 获取nginx，在http://nginx.org/en/download.html上可以获取当前最新的版本。
+
+		2. 解压缩nginx-xx.tar.gz包。
+
+		3. 进入解压缩目录，执行./configure
+
+		4. make & make install
+
+		若安装时找不到上述依赖模块，使用--with-openssl=<openssl_dir>、--with-pcre=<pcre_dir>、--with-zlib=<zlib_dir>指定依赖的模块目录。如已安装过，此处的路径为安装目录；若未安装，则此路径为编译安装包路径，nginx将执行模块的默认编译安装。
 			
 3. 下载[fastdfs-nginx-module模块](https://github.com/happyfish100/fastdfs-nginx-module)
 			
@@ -481,34 +519,82 @@ nginx config
 4. 下载[nginx-lua-module模块](http://blog.csdn.net/qq_25551295/article/details/51744815)
 	1. 下载安装LuaJIT 2.1
 	
-			cd /usr/local/src
 			wget http://luajit.org/download/LuaJIT-2.1.0-beta2.tar.gz
 			tar zxf LuaJIT-2.1.0-beta2.tar.gz
 			cd LuaJIT-2.1.0-beta2
-			make PREFIX=/usr/local/luajit
-			make install PREFIX=/usr/local/luajit
+			make
+			make install
+			（默认安装在/usr/loacl下）
 			
 	2. 下载ngx_devel_kit（NDK）模块
 	
-			cd /usr/local/src
 			wget https://github.com/simpl/ngx_devel_kit/archive/v0.2.19.tar.gz
 			tar -xzvf v0.2.19.tar.gz
 			
 	3. 下载最新的lua-nginx-module模块
 	
-			cd /usr/local/src
 			wget https://github.com/openresty/lua-nginx-module/archive/v0.10.2.tar.gz
 			tar -xzvf v0.10.2.tar.gz	
-			
-5. 编译安装(请正确设定相关模块所在目录)
 
-			./configure --prefix=/opt/nginx-1.10.1 --with-http_stub_status_module --with-http_realip_module --with-http_ssl_module --with-pcre --add-module=/home/long.yan/ngx_devel_kit-0.2.18/ --add-module=/home/long.yan/lua-nginx-module-0.10.2/ --add-module=/home/yue.yang/fastdfs-nginx-module-master/src
+5. 创建www用户和www组
+
+			groupadd www  # 创建www组
+    		useradd -g www www # 创建www用户隶属于www组 ( useradd -g GroupName userName )
+    		passwd www  # 给www用户设置密码
+			
+6. 编译安装(请正确设定相关模块所在目录)
+
+			#./configure --prefix=/opt/nginx-1.10.1 --with-http_stub_status_module --with-http_realip_module --with-http_ssl_module --with-pcre --add-module=/home/long.yan/ngx_devel_kit-0.2.18/ --add-module=/home/long.yan/lua-nginx-module-0.10.2/ --add-module=/home/yue.yang/fastdfs-nginx-module-master/src
+
+			./configure --prefix=/opt/nginx --user=www --group=www --with-http_stub_status_module --with-http_realip_module --with-pcre --with-openssl=/home/yangyue/setup/openssl-1.0.1u --with-http_ssl_module --with-stream --add-module=/home/yangyue/setup/ngx_devel_kit-0.2.19/ --add-module=/home/yangyue/setup/lua-nginx-module-0.10.2/  (线上使用此配置)
 
 			make
 			
 			make install
 			
 	安装成功后nginx将会安装在/opt/nginx-1.10.1中
+
+	* 错误处理：
+		
+		* 错误一、找不到LuaJIT路径：
+
+				export LUAJIT_LIB=/usr/local/lib
+				export LUAJIT_INC=/usr/local/include/luajit-2.1
+
+		* 错误二、error while loading shared libraries: libluajit-5.1.so.2: cannot open shared 解决办法，errorloadingskin
+
+			一般我们在Linux下执行某些外部程序的时候可能会提示找不到共享库的错误, 比如:
+ 
+					tmux: error while loading shared libraries: libevent-1.4.so.2: cannot open shared object file: No such file or directory
+
+			原因一般有两个, 一个是操作系统里确实没有包含该共享库(lib*.so.*文件)或者共享库版本不对, 遇到这种情况那就去网上下载并安装上即可. 
+
+			另外一个原因就是已经安装了该共享库, 但执行需要调用该共享库的程序的时候, 程序按照默认共享库路径找不到该共享库文件. 
+
+			所以安装共享库后要注意共享库路径设置问题, 如下:
+
+			1. 如果共享库文件安装到了/lib或/usr/lib目录下, 那么需执行一下ldconfig命令
+
+				ldconfig命令的用途, 主要是在默认搜寻目录(/lib和/usr/lib)以及动态库配置文件/etc/ld.so.conf内所列的目录下, 搜索出可共享的动态链接库(格式如lib*.so*), 进而创建出动态装入程序(ld.so)所需的连接和缓存文件. 缓存文件默认为/etc/ld.so.cache, 此文件保存已排好序的动态链接库名字列表. 
+
+			2. 如果共享库文件安装到了/usr/local/lib(很多开源的共享库都会安装到该目录下)或其它"非/lib或/usr/lib"目录下, 那么在执行ldconfig命令前, 还要把新共享库目录加入到共享库配置文件/etc/ld.so.conf中, 如下:
+
+					# cat /etc/ld.so.conf
+					include ld.so.conf.d/*.conf
+					# echo "/usr/local/lib" >> /etc/ld.so.conf
+					# ldconfig
+
+		* 错误三、PCRE依赖错误
+			1. 请确保pcre-devel模块被正确安装
+					
+					yum install pcre-devel
+
+			2. 请注意不要使用过高的pcre版本，推荐使用yum安装的pcre或者pcre8.35,否则会出现依赖问题
+
+		* 错误四、 OPENSSL错误
+			1. 请确保openssl版本不要太高，推荐使用openssl-1.0.1u
+
+		* Nginx推荐使用1.10.1
 	
 6. 相关配置
 	* nginx.conf文件
